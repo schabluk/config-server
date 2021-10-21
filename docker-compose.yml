@@ -1,0 +1,50 @@
+version: '3.9'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - 2181:2181
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - spring_network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    ports:
+      - 19092:19092
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+    networks:
+      - spring_network
+
+  config-server:
+    container_name: config-app
+    build:
+      context: app
+      dockerfile: Dockerfile
+    depends_on:
+      - kafka
+    ports:
+        - 8012:8012
+    environment:
+      - spring.kafka.bootstrap-servers=kafka:9092
+      - spring.profiles.active=native
+      - spring.cloud.config.server.native.searchLocations=file:///usr/app/config-backend
+    volumes: 
+      - ./backend:/usr/app/config-backend
+    networks:
+      - spring_network
+
+networks:
+  spring_network:
+    driver: bridge
